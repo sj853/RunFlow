@@ -1,28 +1,31 @@
 package com.sj.flowrun;
 
-import java.net.URLConnection;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.sj.util.URLconnecTest;
-
 import android.app.Activity;
+import android.content.Context;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Process;
 import android.view.Menu;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.sj.util.*;
+import com.sj.util.MyTrafficStats;
+import com.sj.util.URLconnecTest;
 
 public class MainActivity extends Activity {
 	
 	private TextView currentSpeed;
 	private TextView currentPercenteage;
+	private TextView result;
 	private boolean isStart = true;
+	private ConnectivityManager cm;
 	
 	private Handler handler = new Handler(){
 
@@ -34,6 +37,9 @@ public class MainActivity extends Activity {
 				break;
 			case 1:
 				currentPercenteage.setText((CharSequence) msg.obj);
+				break;
+			case 2:
+				result.setText((CharSequence) msg.obj);
 				break;
 			default:
 				break;
@@ -49,6 +55,8 @@ public class MainActivity extends Activity {
 		
 		currentSpeed = (TextView) findViewById(R.id.currentSpeedTxt);
 		currentPercenteage = (TextView) findViewById(R.id.currentPercenteage);
+		result = (TextView) findViewById(R.id.resultTxt);
+		cm =  (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
 		
 		Button startBtn = (Button) findViewById(R.id.startBtn);
 		
@@ -64,14 +72,17 @@ public class MainActivity extends Activity {
 								@Override
 								public void run() {
 									try {
+										Message msg = new Message();
+										msg.what = 0;
+										msg.obj = "currentSpeed: "
+												+ URLconnecTest.sizeParse(URLconnecTest.currentLength - URLconnecTest.furtherLength)+"/S"
+												+" processID : "+Process.myUid()
+												+" networkType : "+ cm.getActiveNetworkInfo().getTypeName()
+											+ " 目前消耗了-"+URLconnecTest.sizeParse(MyTrafficStats.getWifiTotalBytes())+"-文件大小 "+URLconnecTest.sizeParse(URLconnecTest.currentLength)+"  流量";
+										handler.sendMessage(msg);
 										if (URLconnecTest.furtherLength != 0 && URLconnecTest.furtherLength == URLconnecTest.totalLength){
 											this.cancel();
 										}else{
-											Message msg = new Message();
-											msg.what = 0;
-											msg.obj = "currentSpeed: "
-													+ URLconnecTest.sizeParse(URLconnecTest.currentLength - URLconnecTest.furtherLength)+"/S";
-											handler.sendMessage(msg);
 											URLconnecTest.furtherLength = URLconnecTest.currentLength;
 										}
 									} catch (Exception e) {
@@ -83,14 +94,14 @@ public class MainActivity extends Activity {
 
 								@Override
 								public void run() {
-
+ 
 									long startTime = System.currentTimeMillis();
 									URLconnecTest.downloadTemp = MainActivity.this.getCacheDir().getAbsolutePath(); 
 									URLconnecTest.download();
 									long useTime = System.currentTimeMillis() - startTime;
 									try {
 										Message msg = new Message();
-										msg.what = 0;
+										msg.what = 2;
 										msg.obj = "total size : "
 												+ URLconnecTest.sizeParse(URLconnecTest.totalLength)
 												+ " total use time: "
@@ -110,14 +121,13 @@ public class MainActivity extends Activity {
 										while(true){
 											try {
 												Thread.sleep(1000);
+												URLconnecTest.percenteage = URLconnecTest.doPercentage(URLconnecTest.currentLength, URLconnecTest.totalLength);
+												Message msg = new Message();
+												msg.what = 1;
+												msg.obj = "currentPercenteage: "+URLconnecTest.percenteage;
+												handler.sendMessage(msg);
 												if(URLconnecTest.currentLength == URLconnecTest.totalLength && URLconnecTest.currentLength!=0 ) {
 													break;
-												}else{
-													URLconnecTest.percenteage = URLconnecTest.doPercentage(URLconnecTest.currentLength, URLconnecTest.totalLength);
-													Message msg = new Message();
-													msg.what = 1;
-													msg.obj = "currentPercenteage: "+URLconnecTest.percenteage;
-													handler.sendMessage(msg);
 												}
 											} catch (InterruptedException e) {
 												e.printStackTrace();
